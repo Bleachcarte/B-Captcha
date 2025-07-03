@@ -6,87 +6,180 @@
   <title>B-Captcha</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #f4f7f9, #e2e6ea);
+      margin: 0;
+      padding: 40px 20px;
       text-align: center;
-      background: #f0f0f0;
-      margin: 40px;
     }
+
     .captcha-container {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .frame {
       position: relative;
       width: 100%;
-      max-width: 400px;
-      margin: 20px auto;
-      height: 200px;
+      height: 320px;
+      background: #fff;
+      border: 2px solid #ddd;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
+
+    #shapes {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 5px;
+      z-index: 10;
+    }
+
     .shape, .slot {
       width: 60px;
       height: 60px;
-      font-size: 40px;
-      border: 2px dashed #666;
+      font-size: 36px;
+      border: 2px dashed #aaa;
       background: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
       user-select: none;
+      transition: transform 0.2s ease;
+      cursor: grab;
+    }
+    .shape:active {
+      cursor: grabbing;
+    }
+
+    .slot {
       position: absolute;
-      transition: box-shadow 0.2s;
+      pointer-events: auto;
     }
-    .slot.correct { border-color: green; }
-    .slot.incorrect { border-color: red; }
-    #verifyBtn {
-      margin-top: 20px;
-      padding: 8px 16px;
+
+    .slot.correct {
+      border-color: green;
+      background: #e0ffe0;
+      box-shadow: 0 0 8px green;
     }
+    .slot.incorrect {
+      border-color: red;
+      background: #ffe0e0;
+      box-shadow: 0 0 8px red;
+    }
+
+    .slot .hint {
+      opacity: 0.15;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #verifyBtn, #continueBtn {
+      margin-top: 30px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: 24px;
+      font-size: 17px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      user-select: none;
+    }
+    #verifyBtn:disabled {
+      background-color: #b0c9ff;
+      cursor: not-allowed;
+    }
+    #verifyBtn:hover:not(:disabled),
+    #continueBtn:hover {
+      background-color: #0056b3;
+      transform: scale(1.05);
+    }
+
     #msg {
-      color: red;
-      margin-top: 10px;
+      color: #b30000;
+      margin-top: 14px;
+      min-height: 22px;
+      font-weight: 600;
+      user-select: none;
+      min-height: 24px;
     }
+
     #hp-field {
       position: absolute;
       left: -9999px;
-      top: auto;
       width: 1px;
       height: 1px;
       overflow: hidden;
     }
-    .slot .hint {
-      opacity: 0.2;
-      font-size: 40px;
-      pointer-events: none;
+
+    #success {
+      display: none;
+      background: #d4edda;
+      padding: 22px 18px;
+      border-radius: 16px;
+      margin-top: 28px;
+      color: #155724;
+      font-weight: 700;
+      box-shadow: 0 3px 15px rgba(21, 87, 36, 0.25);
+      user-select: none;
     }
   </style>
 </head>
 <body>
   <h2>B-Captcha</h2>
-  <p>Drag each shape into its matching moving slot</p>
+  <p>Hold and drag each shape into its matching moving slot</p>
 
+  <!-- Honeypot input for bot detection -->
   <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1" />
 
   <div class="captcha-container">
-    <div id="shapes"></div>
-    <div id="slots"></div>
+    <div class="frame" id="frame">
+      <div id="slots"></div>
+      <div id="shapes"></div>
+    </div>
   </div>
 
   <button id="verifyBtn" disabled>Verify</button>
   <p id="msg"></p>
 
+  <div id="success">
+    ✅ You’ve been verified!<br />
+    <button id="continueBtn">Continue</button>
+  </div>
+
   <script>
+    // Shapes data
     const shapes = [
       { id: 'circle', emoji: '🟢' },
       { id: 'triangle', emoji: '🔺' },
       { id: 'square', emoji: '🟦' }
     ];
 
+    // State variables
     let matched = {};
     let dragInfo = null;
+    let animationActive = true;
 
+    // DOM references
     const shapesEl = document.getElementById('shapes');
     const slotsEl = document.getElementById('slots');
+    const frameEl = document.getElementById('frame');
     const verifyBtn = document.getElementById('verifyBtn');
     const msgEl = document.getElementById('msg');
     const hpField = document.getElementById('hp-field');
+    const successEl = document.getElementById('success');
+    const continueBtn = document.getElementById('continueBtn');
 
-    // Create draggable shapes
+    // Create draggable shapes at the bottom
     const order = [...shapes].sort(() => Math.random() - 0.5);
     order.forEach((s, i) => {
       const el = document.createElement('div');
@@ -94,58 +187,146 @@
       el.innerText = s.emoji;
       el.draggable = true;
       el.id = `shape-${s.id}`;
-      el.style.top = '160px';
-      el.style.left = `${50 + i * 100}px`;
 
+      // Position shapes evenly spaced inside shapes container (flexbox does that)
+      shapesEl.appendChild(el);
+
+      // Drag start event
       el.addEventListener('dragstart', e => {
-        dragInfo = { shapeId: s.id };
+        dragInfo = {
+          shapeId: s.id,
+          startTime: Date.now(),
+          moves: []
+        };
         e.dataTransfer.setData('text/plain', s.id);
       });
 
-      shapesEl.appendChild(el);
+      // Track mouse movements for irregularity check (commented out)
+      el.addEventListener('mousemove', e => {
+        if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
+      });
     });
 
-    // Create moving slots
-    const slotConfigs = shapes.map((s, i) => {
+    // Create moving slots inside the frame
+    const slotConfigs = shapes.map(s => {
       const slot = document.createElement('div');
       slot.className = 'slot';
       slot.dataset.id = s.id;
       slot.innerHTML = `<span class="hint">${s.emoji}</span>`;
-      slot.x0 = 100 + (i * 100);
-      slot.y0 = 60;
-      slot.radius = 40 + Math.random() * 20;
-      slot.freq = 0.002 + Math.random() * 0.002;
-      slot.phase = Math.random() * Math.PI * 2;
 
+      // Random start position inside frame boundaries (account for shapes area at bottom)
+      slot.x = Math.random() * (frameEl.clientWidth - 60);
+      slot.y = Math.random() * (frameEl.clientHeight - 60 - 80) + 20;
+
+      // Velocity px/frame: random speed and direction (between -1.2 and 1.2)
+      slot.vx = (Math.random() * 2.4) - 1.2;
+      slot.vy = (Math.random() * 2.4) - 1.2;
+
+      // Apply position
+      slot.style.left = slot.x + 'px';
+      slot.style.top = slot.y + 'px';
+
+      // Allow drop on slot
       slot.addEventListener('dragover', e => e.preventDefault());
       slot.addEventListener('drop', onDrop);
+
       slotsEl.appendChild(slot);
       return slot;
     });
 
-    // Animate slots in circular motion
-    function animate(time) {
+    // Animation loop: move slots with bouncing inside frame bounds
+    function animate() {
+      if (!animationActive) return;
+
+      // Update frame size dynamically for responsiveness
+      const frameW = frameEl.clientWidth;
+      const frameH = frameEl.clientHeight;
+
       slotConfigs.forEach(slot => {
-        const angle = time * slot.freq + slot.phase;
-        const dx = slot.radius * Math.cos(angle);
-        const dy = slot.radius * Math.sin(angle);
-        slot.style.left = `${slot.x0 + dx}px`;
-        slot.style.top = `${slot.y0 + dy}px`;
+        slot.x += slot.vx;
+        slot.y += slot.vy;
+
+        // Bounce horizontally
+        if (slot.x < 0) {
+          slot.x = 0;
+          slot.vx = -slot.vx;
+        } else if (slot.x > frameW - 60) {
+          slot.x = frameW - 60;
+          slot.vx = -slot.vx;
+        }
+
+        // Bounce vertically (avoid bottom 80px for shapes)
+        if (slot.y < 0) {
+          slot.y = 0;
+          slot.vy = -slot.vy;
+        } else if (slot.y > frameH - 60 - 80) {
+          slot.y = frameH - 60 - 80;
+          slot.vy = -slot.vy;
+        }
+
+        slot.style.left = slot.x + 'px';
+        slot.style.top = slot.y + 'px';
       });
+
       requestAnimationFrame(animate);
     }
     requestAnimationFrame(animate);
 
+    // On window resize, reposition slots if out of bounds
+    window.addEventListener('resize', () => {
+      const frameW = frameEl.clientWidth;
+      const frameH = frameEl.clientHeight;
+
+      slotConfigs.forEach(slot => {
+        slot.x = Math.min(slot.x, frameW - 60);
+        slot.y = Math.min(slot.y, frameH - 60 - 80);
+        slot.style.left = slot.x + 'px';
+        slot.style.top = slot.y + 'px';
+      });
+    });
+
+    // Drop handler
     function onDrop(e) {
       e.preventDefault();
       const slot = e.currentTarget;
       const draggedId = e.dataTransfer.getData('text/plain');
 
+      // Honeypot bot detection
       if (hpField.value) {
         recordFail('Bot detected.');
         return;
       }
 
+      // --- Irregular drag behavior check (commented out) ---
+      const duration = Date.now() - dragInfo.startTime;
+
+if (duration < 150) {
+  recordFail('Drag too fast.');
+  return;
+}
+if (duration > 8000) {
+  recordFail('Drag too slow.');
+  return;
+}
+
+// Calculate total distance dragged
+const moves = dragInfo.moves;
+let totalDistance = 0;
+for (let i = 1; i < moves.length; i++) {
+  const dx = moves[i].x - moves[i - 1].x;
+  const dy = moves[i].y - moves[i - 1].y;
+  totalDistance += Math.hypot(dx, dy);
+}
+
+// Optional: If total distance > some threshold, fail (e.g. > 2000 px)
+if (totalDistance > 2000) {
+  recordFail('Drag too erratic.');
+  return;
+}
+
+
+
+      // Check correct match
       if (draggedId === slot.dataset.id) {
         slot.classList.remove('incorrect');
         slot.classList.add('correct');
@@ -159,16 +340,28 @@
         return;
       }
 
+      // Enable verify button if all matched
       if (shapes.every(s => matched[s.id])) {
         verifyBtn.disabled = false;
         msgEl.textContent = '';
       }
     }
 
+    // Verify button clicked
     verifyBtn.addEventListener('click', () => {
-      alert('B-Captcha passed!');
+      animationActive = false;
+      // Disable all dragging
+      document.querySelectorAll('.shape').forEach(el => el.draggable = false);
+      verifyBtn.style.display = 'none';
+      successEl.style.display = 'block';
     });
 
+    // Continue button reloads page (or redirect here later)
+    continueBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+
+    // Display failure message
     function recordFail(reason) {
       msgEl.textContent = reason + ' Try again.';
     }
