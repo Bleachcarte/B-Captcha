@@ -15,7 +15,7 @@ A lightweight, user-friendly moving-slot CAPTCHA replacement designed to enhance
 
 ## Demo
 
-Try the live demo [here](#) *(Add link to your deployed version)*
+Try the live demo [here](https://bleachcarte.github.io/B-Captcha/) 
 
 ## Usage
 
