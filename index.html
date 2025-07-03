@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moving-Slot CAPTCHA</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f0f0f0;
+      margin: 40px;
+    }
+    .captcha-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin: 20px auto;
+      height: 120px;
+    }
+    .shapes, .slots {
+      display: flex;
+      justify-content: space-around;
+    }
+    .shape, .slot {
+      width: 60px;
+      height: 60px;
+      font-size: 40px;
+      border: 2px dashed #666;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      position: absolute;
+    }
+    .slot.correct { border-color: green; }
+    .slot.incorrect { border-color: red; }
+    #verifyBtn {
+      margin-top: 20px;
+      padding: 8px 16px;
+    }
+    #msg {
+      color: red;
+      margin-top: 10px;
+    }
+    /* Honeypot is visually hidden */
+    #hp-field {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <h2>Prove you’re human</h2>
+  <p>Drag each shape into its moving slot</p>
+
+  <!-- Honeypot field -->
+  <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1">
+
+  <div class="captcha-container">
+    <div id="shapes" class="shapes"></div>
+    <div id="slots" class="slots"></div>
+  </div>
+
+  <button id="verifyBtn" disabled>Verify</button>
+  <p id="msg"></p>
+
+  <script>
+    // CONFIG
+    const shapes = [
+      { id: 'circle', emoji: '🟢' },
+      { id: 'triangle', emoji: '🔺' },
+      { id: 'square', emoji: '🟦' }
+    ];
+    const MIN_DURATION = 300;
+    const MAX_DURATION = 10000;
+    const MIN_MOVES = 5;
+    const MAX_MOVES = 200;
+    const FAIL_LIMIT = 3;
+    const COOLDOWN_MS = 60000;
+
+    // STATE
+    let matched = {};
+    let dragInfo = null;
+    const shapesEl  = document.getElementById('shapes');
+    const slotsEl   = document.getElementById('slots');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const msgEl     = document.getElementById('msg');
+    const hpField   = document.getElementById('hp-field');
+
+    // Rate limiter
+    const fails    = parseInt(sessionStorage.getItem('failCount') || '0', 10);
+    const lastFail = parseInt(sessionStorage.getItem('lastFailTS') || '0', 10);
+    if (fails >= FAIL_LIMIT && Date.now() - lastFail < COOLDOWN_MS) {
+      msgEl.textContent = 'Too many attempts. Please wait a minute.';
+      verifyBtn.disabled = true;
+    }
+
+    // Init shapes
+    const order = [...shapes].sort(() => Math.random() - .5);
+    order.forEach((s, i) => {
+      const el = document.createElement('div');
+      el.className = 'shape';
+      el.innerText = s.emoji;
+      el.draggable = true;
+      el.id = `shape-${s.id}`;
+      el.style.top  = '140px';
+      el.style.left = `${50 + i * 100}px`;
+      el.addEventListener('dragstart', e => {
+        if (verifyBtn.disabled && msgEl.textContent.includes('wait')) {
+          e.preventDefault();
+          return;
+        }
+        dragInfo = { startTime: Date.now(), moves: [], shapeId: s.id };
+        e.dataTransfer.setData('text/plain', s.id);
+      });
+      el.addEventListener('mousemove', e => {
+        if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
+      });
+      shapesEl.appendChild(el);
+    });
+
+    // Init slots with motion params
+    const slotConfigs = shapes.map((s, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.id = s.id;
+      slot.x0 = 50 + i * 100;
+      slot.y0 = 20;
+      slot.amp   = 10 + Math.random() * 20;
+      slot.freq  = 0.001 + Math.random() * 0.002;
+      slot.phase = Math.random() * Math.PI * 2;
+      slot.style.left = `${slot.x0}px`;
+      slot.style.top  = `${slot.y0}px`;
+      slot.addEventListener('dragover', e => e.preventDefault());
+      slot.addEventListener('drop', onDrop);
+      slotsEl.appendChild(slot);
+      return slot;
+    });
+
+    // Animation
+    function animate(time) {
+      slotConfigs.forEach(slot => {
+        const dx = slot.amp * Math.sin(slot.freq * time + slot.phase);
+        slot.style.left = `${slot.x0 + dx}px`;
+      });
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // Drop handler
+    function onDrop(e) {
+      e.preventDefault();
+      const slot     = e.currentTarget;
+      const draggedId= e.dataTransfer.getData('text/plain');
+
+      // Honeypot
+      if (hpField.value) {
+        recordFail('Bot detected.');
+        return;
+      }
+
+      // Behavior checks
+      const duration = Date.now() - dragInfo.startTime;
+      const moves    = dragInfo.moves.length;
+      const deltas   = dragInfo.moves.map((p, i, a) => {
+        if (i === 0) return 0;
+        const dx = p.x - a[i-1].x, dy = p.y - a[i-1].y;
+        return Math.hypot(dx, dy);
+      }).slice(1);
+      const mean   = deltas.reduce((a,b)=>a+b,0)/deltas.length || 0;
+      const varSum = deltas.reduce((a,b)=>a + (b-mean)**2,0);
+      const stddev = Math.sqrt(varSum/deltas.length) || 0;
+
+      if (duration < MIN_DURATION ||
+          duration > MAX_DURATION ||
+          moves < MIN_MOVES ||
+          moves > MAX_MOVES ||
+          stddev < 1) {
+        recordFail('Unusual drag behavior.');
+        return;
+      }
+
+      // Match check
+      if (draggedId === slot.dataset.id) {
+        slot.classList.remove('incorrect');
+        slot.classList.add('correct');
+        slot.innerText = shapes.find(s=>s.id===draggedId).emoji;
+        matched[draggedId] = true;
+      } else {
+        recordFail('Wrong match.');
+        return;
+      }
+
+      // All matched?
+      if (shapes.every(s=>matched[s.id])) {
+        verifyBtn.disabled = false;
+        msgEl.textContent = '';
+      }
+    }
+
+    // Verify
+    verifyBtn.addEventListener('click', () => {
+      alert('CAPTCHA passed!');
+      slotConfigs.length = 0; // stop animation
+    });
+
+    // Fail handling
+    function recordFail(reason) {
+      msgEl.textContent = reason + ' Try again.';
+      let f = parseInt(sessionStorage.getItem('failCount')||'0',10) + 1;
+      sessionStorage.setItem('failCount', f);
+      sessionStorage.setItem('lastFailTS', Date.now());
+      setTimeout(() => location.reload(), 1000);
+    }
+  </script>
+</body>
+</html>
