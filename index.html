@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Moving-Slot CAPTCHA</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>B-Captcha</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -16,11 +16,7 @@
       width: 100%;
       max-width: 400px;
       margin: 20px auto;
-      height: 120px;
-    }
-    .shapes, .slots {
-      display: flex;
-      justify-content: space-around;
+      height: 200px;
     }
     .shape, .slot {
       width: 60px;
@@ -33,6 +29,7 @@
       justify-content: center;
       user-select: none;
       position: absolute;
+      transition: box-shadow 0.2s;
     }
     .slot.correct { border-color: green; }
     .slot.incorrect { border-color: red; }
@@ -44,7 +41,6 @@
       color: red;
       margin-top: 10px;
     }
-    /* Honeypot is visually hidden */
     #hp-field {
       position: absolute;
       left: -9999px;
@@ -53,170 +49,128 @@
       height: 1px;
       overflow: hidden;
     }
+    .slot .hint {
+      opacity: 0.2;
+      font-size: 40px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <h2>Prove you’re human</h2>
-  <p>Drag each shape into its moving slot</p>
+  <h2>B-Captcha</h2>
+  <p>Drag each shape into its matching moving slot</p>
 
-  <!-- Honeypot field -->
-  <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1">
+  <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1" />
 
   <div class="captcha-container">
-    <div id="shapes" class="shapes"></div>
-    <div id="slots" class="slots"></div>
+    <div id="shapes"></div>
+    <div id="slots"></div>
   </div>
 
   <button id="verifyBtn" disabled>Verify</button>
   <p id="msg"></p>
 
   <script>
-    // CONFIG
     const shapes = [
       { id: 'circle', emoji: '🟢' },
       { id: 'triangle', emoji: '🔺' },
       { id: 'square', emoji: '🟦' }
     ];
-    const MIN_DURATION = 300;
-    const MAX_DURATION = 10000;
-    const MIN_MOVES = 5;
-    const MAX_MOVES = 200;
-    const FAIL_LIMIT = 3;
-    const COOLDOWN_MS = 60000;
 
-    // STATE
     let matched = {};
     let dragInfo = null;
-    const shapesEl  = document.getElementById('shapes');
-    const slotsEl   = document.getElementById('slots');
+
+    const shapesEl = document.getElementById('shapes');
+    const slotsEl = document.getElementById('slots');
     const verifyBtn = document.getElementById('verifyBtn');
-    const msgEl     = document.getElementById('msg');
-    const hpField   = document.getElementById('hp-field');
+    const msgEl = document.getElementById('msg');
+    const hpField = document.getElementById('hp-field');
 
-    // Rate limiter
-    const fails    = parseInt(sessionStorage.getItem('failCount') || '0', 10);
-    const lastFail = parseInt(sessionStorage.getItem('lastFailTS') || '0', 10);
-    if (fails >= FAIL_LIMIT && Date.now() - lastFail < COOLDOWN_MS) {
-      msgEl.textContent = 'Too many attempts. Please wait a minute.';
-      verifyBtn.disabled = true;
-    }
-
-    // Init shapes
-    const order = [...shapes].sort(() => Math.random() - .5);
+    // Create draggable shapes
+    const order = [...shapes].sort(() => Math.random() - 0.5);
     order.forEach((s, i) => {
       const el = document.createElement('div');
       el.className = 'shape';
       el.innerText = s.emoji;
       el.draggable = true;
       el.id = `shape-${s.id}`;
-      el.style.top  = '140px';
+      el.style.top = '160px';
       el.style.left = `${50 + i * 100}px`;
+
       el.addEventListener('dragstart', e => {
-        if (verifyBtn.disabled && msgEl.textContent.includes('wait')) {
-          e.preventDefault();
-          return;
-        }
-        dragInfo = { startTime: Date.now(), moves: [], shapeId: s.id };
+        dragInfo = { shapeId: s.id };
         e.dataTransfer.setData('text/plain', s.id);
       });
-      el.addEventListener('mousemove', e => {
-        if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
-      });
+
       shapesEl.appendChild(el);
     });
 
-    // Init slots with motion params
+    // Create moving slots
     const slotConfigs = shapes.map((s, i) => {
       const slot = document.createElement('div');
       slot.className = 'slot';
       slot.dataset.id = s.id;
-      slot.x0 = 50 + i * 100;
-      slot.y0 = 20;
-      slot.amp   = 10 + Math.random() * 20;
-      slot.freq  = 0.001 + Math.random() * 0.002;
+      slot.innerHTML = `<span class="hint">${s.emoji}</span>`;
+      slot.x0 = 100 + (i * 100);
+      slot.y0 = 60;
+      slot.radius = 40 + Math.random() * 20;
+      slot.freq = 0.002 + Math.random() * 0.002;
       slot.phase = Math.random() * Math.PI * 2;
-      slot.style.left = `${slot.x0}px`;
-      slot.style.top  = `${slot.y0}px`;
+
       slot.addEventListener('dragover', e => e.preventDefault());
       slot.addEventListener('drop', onDrop);
       slotsEl.appendChild(slot);
       return slot;
     });
 
-    // Animation
+    // Animate slots in circular motion
     function animate(time) {
       slotConfigs.forEach(slot => {
-        const dx = slot.amp * Math.sin(slot.freq * time + slot.phase);
+        const angle = time * slot.freq + slot.phase;
+        const dx = slot.radius * Math.cos(angle);
+        const dy = slot.radius * Math.sin(angle);
         slot.style.left = `${slot.x0 + dx}px`;
+        slot.style.top = `${slot.y0 + dy}px`;
       });
       requestAnimationFrame(animate);
     }
     requestAnimationFrame(animate);
 
-    // Drop handler
     function onDrop(e) {
       e.preventDefault();
-      const slot     = e.currentTarget;
-      const draggedId= e.dataTransfer.getData('text/plain');
+      const slot = e.currentTarget;
+      const draggedId = e.dataTransfer.getData('text/plain');
 
-      // Honeypot
       if (hpField.value) {
         recordFail('Bot detected.');
         return;
       }
 
-      // Behavior checks
-      const duration = Date.now() - dragInfo.startTime;
-      const moves    = dragInfo.moves.length;
-      const deltas   = dragInfo.moves.map((p, i, a) => {
-        if (i === 0) return 0;
-        const dx = p.x - a[i-1].x, dy = p.y - a[i-1].y;
-        return Math.hypot(dx, dy);
-      }).slice(1);
-      const mean   = deltas.reduce((a,b)=>a+b,0)/deltas.length || 0;
-      const varSum = deltas.reduce((a,b)=>a + (b-mean)**2,0);
-      const stddev = Math.sqrt(varSum/deltas.length) || 0;
-
-      if (duration < MIN_DURATION ||
-          duration > MAX_DURATION ||
-          moves < MIN_MOVES ||
-          moves > MAX_MOVES ||
-          stddev < 1) {
-        recordFail('Unusual drag behavior.');
-        return;
-      }
-
-      // Match check
       if (draggedId === slot.dataset.id) {
         slot.classList.remove('incorrect');
         slot.classList.add('correct');
-        slot.innerText = shapes.find(s=>s.id===draggedId).emoji;
+        slot.innerText = shapes.find(s => s.id === draggedId).emoji;
         matched[draggedId] = true;
       } else {
+        slot.classList.add('incorrect');
+        slot.innerText = '❌';
+        matched[slot.dataset.id] = false;
         recordFail('Wrong match.');
         return;
       }
 
-      // All matched?
-      if (shapes.every(s=>matched[s.id])) {
+      if (shapes.every(s => matched[s.id])) {
         verifyBtn.disabled = false;
         msgEl.textContent = '';
       }
     }
 
-    // Verify
     verifyBtn.addEventListener('click', () => {
-      alert('CAPTCHA passed!');
-      slotConfigs.length = 0; // stop animation
+      alert('B-Captcha passed!');
     });
 
-    // Fail handling
     function recordFail(reason) {
       msgEl.textContent = reason + ' Try again.';
-      let f = parseInt(sessionStorage.getItem('failCount')||'0',10) + 1;
-      sessionStorage.setItem('failCount', f);
-      sessionStorage.setItem('lastFailTS', Date.now());
-      setTimeout(() => location.reload(), 1000);
     }
   </script>
 </body>
