@@ -48,5 +48,5 @@ MIT License © 2025 Daniel Ekong
 
 ---
 
-*Built with ♥ by Daniel Ekong*
+*Built with Swag by Daniel (Bleach) Ekong*
 
