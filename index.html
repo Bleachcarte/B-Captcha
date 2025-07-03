@@ -107,10 +107,9 @@
     #msg {
       color: #b30000;
       margin-top: 14px;
-      min-height: 22px;
+      min-height: 24px;
       font-weight: 600;
       user-select: none;
-      min-height: 24px;
     }
 
     #hp-field {
@@ -132,11 +131,19 @@
       box-shadow: 0 3px 15px rgba(21, 87, 36, 0.25);
       user-select: none;
     }
+
+    /* Tap mode highlight */
+    .shape.selected {
+      border-color: #007bff;
+      box-shadow: 0 0 10px #007bff;
+      transform: scale(1.1);
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <h2>B-Captcha</h2>
-  <p>Hold and drag each shape into its matching moving slot</p>
+  <p id="instruction">Loading...</p>
 
   <!-- Honeypot input for bot detection -->
   <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1" />
@@ -168,6 +175,8 @@
     let matched = {};
     let dragInfo = null;
     let animationActive = true;
+    let selectedShapeId = null;
+    let tapMode = false;
 
     // DOM references
     const shapesEl = document.getElementById('shapes');
@@ -178,6 +187,28 @@
     const hpField = document.getElementById('hp-field');
     const successEl = document.getElementById('success');
     const continueBtn = document.getElementById('continueBtn');
+    const instructionEl = document.getElementById('instruction');
+
+    // Detect real drag and drop support
+    function supportsRealDragAndDrop() {
+      const div = document.createElement('div');
+      const draggableSupported = ('draggable' in div);
+      const dragEventSupported = ('ondragstart' in div);
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (draggableSupported && dragEventSupported && !isTouchDevice) {
+        return true; // desktop-like drag support
+      }
+      return false; // fallback to tap mode on touch or limited support
+    }
+
+    tapMode = !supportsRealDragAndDrop();
+
+    // Set instruction text dynamically
+    if (tapMode) {
+      instructionEl.innerHTML = '<strong>Tap</strong> a shape to select it, then <strong>tap</strong> a moving slot to place it.';
+    } else {
+      instructionEl.innerHTML = '<strong>Hold</strong> and <strong>drag</strong> each shape into its matching moving slot.';
+    }
 
     // Create draggable shapes at the bottom
     const order = [...shapes].sort(() => Math.random() - 0.5);
@@ -185,26 +216,44 @@
       const el = document.createElement('div');
       el.className = 'shape';
       el.innerText = s.emoji;
-      el.draggable = true;
       el.id = `shape-${s.id}`;
 
-      // Position shapes evenly spaced inside shapes container (flexbox does that)
+      if (!tapMode) {
+        // Drag and drop events
+        el.draggable = true;
+
+        el.addEventListener('dragstart', e => {
+          dragInfo = {
+            shapeId: s.id,
+            startTime: Date.now(),
+            moves: []
+          };
+          e.dataTransfer.setData('text/plain', s.id);
+        });
+
+        // Track mouse movements for irregularity check (commented out)
+        el.addEventListener('mousemove', e => {
+          if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
+        });
+      } else {
+        // Tap mode: click/touch selects shape
+        el.addEventListener('click', () => {
+          if (verifyBtn.disabled === false) return; // already verified
+
+          if (selectedShapeId === s.id) {
+            // Deselect
+            selectedShapeId = null;
+            el.classList.remove('selected');
+          } else {
+            // Deselect any other selected
+            document.querySelectorAll('.shape.selected').forEach(x => x.classList.remove('selected'));
+            selectedShapeId = s.id;
+            el.classList.add('selected');
+          }
+        });
+      }
+
       shapesEl.appendChild(el);
-
-      // Drag start event
-      el.addEventListener('dragstart', e => {
-        dragInfo = {
-          shapeId: s.id,
-          startTime: Date.now(),
-          moves: []
-        };
-        e.dataTransfer.setData('text/plain', s.id);
-      });
-
-      // Track mouse movements for irregularity check (commented out)
-      el.addEventListener('mousemove', e => {
-        if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
-      });
     });
 
     // Create moving slots inside the frame
@@ -226,9 +275,44 @@
       slot.style.left = slot.x + 'px';
       slot.style.top = slot.y + 'px';
 
-      // Allow drop on slot
-      slot.addEventListener('dragover', e => e.preventDefault());
-      slot.addEventListener('drop', onDrop);
+      if (!tapMode) {
+        // Drag & drop events
+        slot.addEventListener('dragover', e => e.preventDefault());
+        slot.addEventListener('drop', onDrop);
+      } else {
+        // Tap mode: tap slot to place selected shape
+        slot.addEventListener('click', () => {
+          if (!selectedShapeId || verifyBtn.disabled === false) return;
+
+          // Honeypot bot detection
+          if (hpField.value) {
+            recordFail('Bot detected.');
+            return;
+          }
+
+          if (selectedShapeId === slot.dataset.id) {
+            slot.classList.remove('incorrect');
+            slot.classList.add('correct');
+            slot.innerText = shapes.find(s => s.id === selectedShapeId).emoji;
+            matched[selectedShapeId] = true;
+            selectedShapeId = null;
+            document.querySelectorAll('.shape.selected').forEach(x => x.classList.remove('selected'));
+            msgEl.textContent = '';
+          } else {
+            slot.classList.add('incorrect');
+            slot.innerText = '❌';
+            matched[slot.dataset.id] = false;
+            recordFail('Wrong match.');
+            return;
+          }
+
+          // Enable verify button if all matched
+          if (shapes.every(s => matched[s.id])) {
+            verifyBtn.disabled = false;
+            msgEl.textContent = '';
+          }
+        });
+      }
 
       slotsEl.appendChild(slot);
       return slot;
@@ -285,7 +369,7 @@
       });
     });
 
-    // Drop handler
+    // Drop handler (drag and drop mode)
     function onDrop(e) {
       e.preventDefault();
       const slot = e.currentTarget;
@@ -297,7 +381,6 @@
         return;
       }
 
-      // --- Irregular drag behavior check (commented out) ---
       const duration = Date.now() - dragInfo.startTime;
 
 if (duration < 150) {
@@ -318,12 +401,10 @@ for (let i = 1; i < moves.length; i++) {
   totalDistance += Math.hypot(dx, dy);
 }
 
-// Optional: If total distance > some threshold, fail (e.g. > 2000 px)
 if (totalDistance > 2000) {
   recordFail('Drag too erratic.');
   return;
 }
-
 
 
       // Check correct match
@@ -350,8 +431,9 @@ if (totalDistance > 2000) {
     // Verify button clicked
     verifyBtn.addEventListener('click', () => {
       animationActive = false;
-      // Disable all dragging
+      // Disable all dragging and tapping
       document.querySelectorAll('.shape').forEach(el => el.draggable = false);
+      document.querySelectorAll('.shape').forEach(el => el.style.pointerEvents = 'none');
       verifyBtn.style.display = 'none';
       successEl.style.display = 'block';
     });
