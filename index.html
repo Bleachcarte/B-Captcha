@@ -305,33 +305,12 @@
       display: none !important;
     }
 
-    /* Replace your existing .shape rules with this: */
-.shape {
-  /* GPU Acceleration */
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  
-  /* Rendering Optimization */
-  backface-visibility: hidden;
-  image-rendering: pixelated;
-  contain: strict;
-  
-  /* Drag Specific */
-  -webkit-user-drag: element;
-  user-drag: element;
-  pointer-events: auto;
-}
-
-#shapes {
-  isolation: isolate;
-  position: relative; /* Ensures proper stacking context */
-  z-index: 10;
-}
-
-/* Add this for drag image cleanup */
-.shape[draggable="true"] {
-  drag-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-}
+    .shape {
+    will-change: transform; /* Optimizes transform performance */
+    backface-visibility: hidden; /* Prevents rendering artifacts */
+    -webkit-transform: translateZ(0); /* GPU acceleration for WebKit */
+    }
+    
   </style>
 </head>
 
@@ -722,11 +701,7 @@
         e.preventDefault();
         return;
       }
-      if (e.dataTransfer.setDragImage) {
-    const blankImg = new Image();
-    blankImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    e.dataTransfer.setDragImage(blankImg, 0, 0);
-  }
+      
       state.dragInfo = {
         shapeId: e.target.dataset.id,
         startTime: Date.now(),
