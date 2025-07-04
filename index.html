@@ -305,23 +305,32 @@
       display: none !important;
     }
 
-    .shape {
-    will-change: transform; /* Optimizes transform performance */
-    backface-visibility: hidden; /* Prevents rendering artifacts */
-    -webkit-transform: translateZ(0); /* GPU acceleration for WebKit */
-    }
-    /* Add to existing .shape class */
+    /* Replace your existing .shape rules with this: */
 .shape {
-  -webkit-transform: translate3d(0, 0, 0); /* Force GPU acceleration */
+  /* GPU Acceleration */
   transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  
+  /* Rendering Optimization */
   backface-visibility: hidden;
-  will-change: transform;
-  contain: content;
+  image-rendering: pixelated;
+  contain: strict;
+  
+  /* Drag Specific */
+  -webkit-user-drag: element;
+  user-drag: element;
+  pointer-events: auto;
 }
 
-/* Add new rule */
 #shapes {
-  isolation: isolate; /* Prevents blending artifacts */
+  isolation: isolate;
+  position: relative; /* Ensures proper stacking context */
+  z-index: 10;
+}
+
+/* Add this for drag image cleanup */
+.shape[draggable="true"] {
+  drag-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
 }
   </style>
 </head>
