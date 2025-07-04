@@ -310,6 +310,19 @@
     backface-visibility: hidden; /* Prevents rendering artifacts */
     -webkit-transform: translateZ(0); /* GPU acceleration for WebKit */
     }
+    /* Add to existing .shape class */
+.shape {
+  -webkit-transform: translate3d(0, 0, 0); /* Force GPU acceleration */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform;
+  contain: content;
+}
+
+/* Add new rule */
+#shapes {
+  isolation: isolate; /* Prevents blending artifacts */
+}
   </style>
 </head>
 
