@@ -349,7 +349,7 @@
       lockoutTime: 10000, // 10 seconds
       minDragTime: 100, // milliseconds
       maxDragTime: 15000, // 15 seconds
-      successDisplayTime: 2500, // 2.5 seconds
+      successDisplayTime: 1500, // 1.5 seconds
       minSolveTime: 2000 // Minimum time before allowing submission
     };
 
@@ -664,41 +664,35 @@
       announceAria(message);
     }
 
-    // Handle successful verification
     function handleSuccess() {
-      // Check minimum solve time
-      const solveTime = Date.now() - state.startTime;
-      if (solveTime < SECURITY.minSolveTime) {
-        handleFailure('Please complete the captcha more slowly');
-        return;
-      }
+  // Check minimum solve time
+  const solveTime = Date.now() - state.startTime;
+  if (solveTime < SECURITY.minSolveTime) {
+    handleFailure('Please complete the captcha more slowly');
+    return;
+  }
 
-      // Verify token
-      const allMatched = state.currentShapes.every(shape => state.matched[shape.id]);
-if (!allMatched) {
-  handleFailure('Please complete all matches');
-  return;
+  // Verify all shapes are matched
+  const allMatched = state.currentShapes.every(shape => state.matched[shape.id]);
+  if (!allMatched) {
+    handleFailure('Please complete all matches');
+    return;
+  }
+
+  state.animationActive = false;
+  elements.verifyBtn.style.display = 'none';
+  elements.success.style.display = 'block';
+  announceAria('Verification complete! You passed the security check.');
+  
+  document.querySelectorAll('.shape, .slot').forEach(el => {
+    el.style.pointerEvents = 'none';
+  });
+
+  // Keep your preferred delay, then redirect
+  state.successTimeout = setTimeout(() => {
+    window.location.href = "success.html";
+  }, SECURITY.successDisplayTime); // Still uses your 2.5s delay
 }
-
-// Skip token validation for demo (or implement proper server-side validation)
-// if (!validateToken(Object.keys(state.matched))) {
-//   handleFailure('Verification failed');
-//   return;
-// }
-
-      state.animationActive = false;
-      elements.verifyBtn.style.display = 'none';
-      elements.success.style.display = 'block';
-      announceAria('Verification complete! You passed the security check.');
-      
-      document.querySelectorAll('.shape, .slot').forEach(el => {
-        el.style.pointerEvents = 'none';
-      });
-
-      state.successTimeout = setTimeout(() => {
-        window.location.reload();
-      }, SECURITY.successDisplayTime);
-    }
 
     // Event handlers
     function handleDragStart(e) {

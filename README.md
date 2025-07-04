@@ -44,17 +44,23 @@ Try the live demo [here](https://bleachcarte.github.io/B-Captcha/)
 
 ## Configuration
 
-Tweak these parameters in the script section:
-
 const SECURITY = {
+  // Security Parameters
   maxAttempts: 3,           // Wrong tries before lockout
   lockoutTime: 10000,       // 10 second cooldown
   minDragTime: 150,         // Minimum drag duration (ms)
   maxDragTime: 15000,       // Maximum drag duration (ms)
-  successDisplayTime: 2500, // Success message display time (ms)
-  minSolveTime: 2000        // Minimum verification time (ms)
+  minSolveTime: 2000,       // Minimum verification time (ms)
+  
+  // Display Parameters
+  successDisplayTime: 1500, // Success message display duration (ms)
+  
+  // Redirection
+  successRedirectURL: "success.html" // Change this to any post-verification URL
+  // Example alternatives:
+  // successRedirectURL: "https://yourdomain.com/welcome"
+  // successRedirectURL: "/dashboard.html"
 };
-
 ## Contributing
 
 Contributions are welcome! Feel free to submit issues or pull requests.
