@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>B-Captcha</title>
   <style>
+    /* BASE STYLES */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(to bottom, #f4f7f9, #e2e6ea);
@@ -17,8 +18,54 @@
       width: 100%;
       max-width: 420px;
       margin: 0 auto;
+      position: relative;
     }
 
+    /* KEYBOARD MODE TOGGLE */
+    .keyboard-toggle {
+      position: absolute;
+      top: -10px;
+      right: 0;
+      background: rgba(0,0,0,0.1);
+      border: none;
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    .keyboard-toggle:hover {
+      opacity: 1;
+    }
+    .keyboard-mode .keyboard-toggle {
+      background: #007bff;
+      color: white;
+    }
+
+    /* ACCESSIBILITY TOGGLE */
+    .accessibility-toggle {
+      position: absolute;
+      top: -10px;
+      left: 0;
+      background: rgba(0,0,0,0.1);
+      border: none;
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    .accessibility-toggle:hover {
+      opacity: 1;
+    }
+    .accessibility-mode .accessibility-toggle {
+      background: #4CAF50;
+      color: white;
+    }
+
+    /* FRAME AND SHAPES */
     .frame {
       position: relative;
       width: 100%;
@@ -53,13 +100,41 @@
       border-radius: 14px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.07);
       user-select: none;
-      transition: transform 0.2s ease;
+      transition: 
+        transform 0.2s ease,
+        border-color 0.2s ease;
       cursor: grab;
+      position: relative;
     }
     .shape:active {
       cursor: grabbing;
     }
 
+    /* TOOLTIPS */
+    .shape::after, .slot::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      width: max-content;
+      max-width: 150px;
+      margin-bottom: 5px;
+    }
+    .shape:hover::after, .slot:hover::after {
+      opacity: 1;
+      transition-delay: 1s;
+    }
+
+    /* SLOTS */
     .slot {
       position: absolute;
       pointer-events: auto;
@@ -77,12 +152,19 @@
     }
 
     .slot .hint {
+      position: absolute;
       opacity: 0.15;
       pointer-events: none;
       user-select: none;
     }
 
-    #verifyBtn, #continueBtn {
+    .slot .main-emoji {
+      position: absolute;
+      opacity: 1;
+    }
+
+    /* BUTTONS */
+    #verifyBtn {
       margin-top: 30px;
       padding: 14px 28px;
       border: none;
@@ -98,12 +180,12 @@
       background-color: #b0c9ff;
       cursor: not-allowed;
     }
-    #verifyBtn:hover:not(:disabled),
-    #continueBtn:hover {
+    #verifyBtn:hover:not(:disabled) {
       background-color: #0056b3;
       transform: scale(1.05);
     }
 
+    /* MESSAGES */
     #msg {
       color: #b30000;
       margin-top: 14px;
@@ -112,7 +194,8 @@
       user-select: none;
     }
 
-    #hp-field {
+    /* HIDDEN ELEMENTS */
+    #hp-field, #aria-messages, #captcha-token {
       position: absolute;
       left: -9999px;
       width: 1px;
@@ -120,217 +203,368 @@
       overflow: hidden;
     }
 
+    /* SUCCESS MESSAGE */
     #success {
       display: none;
-      background: #d4edda;
-      padding: 22px 18px;
+      background: white;
+      padding: 30px;
       border-radius: 16px;
-      margin-top: 28px;
+      margin: 20px auto;
+      max-width: 350px;
       color: #155724;
       font-weight: 700;
-      box-shadow: 0 3px 15px rgba(21, 87, 36, 0.25);
-      user-select: none;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+      border: 1px solid #d4edda;
+      animation: fadeIn 0.5s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+    #success::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    }
+    #success h3 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #2E7D32;
+    }
+    #success p {
+      margin-bottom: 0;
+      color: #333;
     }
 
-    /* Tap mode highlight */
+    /* LOCKOUT COUNTDOWN */
+    #lockout-countdown {
+      font-size: 18px;
+      margin: 15px 0;
+      color: #b30000;
+      font-weight: bold;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* SELECTED STATE */
     .shape.selected {
       border-color: #007bff;
       box-shadow: 0 0 10px #007bff;
       transform: scale(1.1);
       cursor: pointer;
     }
+
+    /* KEYBOARD MODE SPECIFIC */
+    .keyboard-mode .shape {
+      cursor: default;
+    }
+    .keyboard-mode .shape:focus {
+      outline: 3px solid #007bff;
+      outline-offset: 2px;
+    }
+    .keyboard-mode .slot:focus {
+      outline: 3px dashed #007bff;
+    }
+
+    /* ACCESSIBILITY MODE */
+    .accessibility-mode .slot {
+      animation: none !important;
+      position: static !important;
+      display: inline-block !important;
+      margin: 10px !important;
+    }
+    .accessibility-mode #shapes {
+      position: static;
+      margin-top: 20px;
+    }
+    .accessibility-mode .frame {
+      height: auto;
+    }
+
+    /* REDUCED MOTION */
+    @media (prefers-reduced-motion: reduce) {
+      .slot:not(.accessibility-mode) {
+        transition: none !important;
+        animation: none !important;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    }
+
+    /* HIDDEN SECURITY ELEMENTS */
+    .security-element {
+      display: none !important;
+    }
   </style>
 </head>
+
 <body>
-  <h2>B-Captcha</h2>
-  <p id="instruction">Loading...</p>
-
-  <!-- Honeypot input for bot detection -->
-  <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1" />
-
   <div class="captcha-container">
+    <button class="accessibility-toggle" aria-label="Toggle accessibility mode">♿</button>
+    <button class="keyboard-toggle" aria-label="Toggle keyboard navigation mode">⌨</button>
+    <h2>B-Captcha</h2>
+    <p id="instruction">Loading...</p>
+
+    <!-- Security & Accessibility Elements -->
+    <div id="aria-messages" aria-live="polite"></div>
+    <input type="text" id="hp-field" name="hp-field" autocomplete="off" tabindex="-1" class="security-element" />
+    <input type="checkbox" id="bot-check" name="bot-check" class="security-element" />
+    <input type="hidden" id="captcha-token" value="">
+
+    <!-- Main CAPTCHA Area -->
     <div class="frame" id="frame">
       <div id="slots"></div>
       <div id="shapes"></div>
     </div>
-  </div>
 
-  <button id="verifyBtn" disabled>Verify</button>
-  <p id="msg"></p>
+    <button id="verifyBtn" disabled>Verify</button>
+    <p id="msg"></p>
+    <div id="lockout-countdown"></div>
 
-  <div id="success">
-    ✅ You’ve been verified!<br />
-    <button id="continueBtn">Continue</button>
+    <div id="success">
+      <h3>✅ Verification Complete!</h3>
+      <p>You've successfully passed the security check.</p>
+    </div>
   </div>
 
   <script>
-    // Shapes data
-    const shapes = [
-      { id: 'circle', emoji: '🟢' },
-      { id: 'triangle', emoji: '🔺' },
-      { id: 'square', emoji: '🟦' }
+    // Security configuration
+    const SECURITY = {
+      maxAttempts: 3,
+      lockoutTime: 10000, // 10 seconds
+      minDragTime: 150, // milliseconds
+      maxDragTime: 15000, // 15 seconds
+      successDisplayTime: 2500, // 2.5 seconds
+      minSolveTime: 2000 // Minimum time before allowing submission
+    };
+
+    // Shape configurations (5 sets)
+    const SHAPE_SETS = [
+      [
+        { id: 'circle', emoji: '🟢', name: 'Green Circle', tooltip: 'Drag green circle to matching slot', ariaLabel: 'Green circle shape' },
+        { id: 'triangle', emoji: '🔺', name: 'Red Triangle', tooltip: 'Drag red triangle to matching slot', ariaLabel: 'Red triangle shape' },
+        { id: 'square', emoji: '🟦', name: 'Blue Square', tooltip: 'Drag blue square to matching slot', ariaLabel: 'Blue square shape' },
+        { id: 'star', emoji: '⭐', name: 'Yellow Star', tooltip: 'Drag yellow star to matching slot', ariaLabel: 'Yellow star shape' },
+        { id: 'heart', emoji: '❤️', name: 'Red Heart', tooltip: 'Drag red heart to matching slot', ariaLabel: 'Red heart shape' }
+      ],
+      [
+        { id: 'circle', emoji: '🔴', name: 'Red Circle', tooltip: 'Drag red circle to matching slot', ariaLabel: 'Red circle shape' },
+        { id: 'diamond', emoji: '🔷', name: 'Blue Diamond', tooltip: 'Drag blue diamond to matching slot', ariaLabel: 'Blue diamond shape' },
+        { id: 'square', emoji: '⏹️', name: 'Black Square', tooltip: 'Drag black square to matching slot', ariaLabel: 'Black square shape' },
+        { id: 'moon', emoji: '🌙', name: 'Crescent Moon', tooltip: 'Drag crescent moon to matching slot', ariaLabel: 'Crescent moon shape' },
+        { id: 'cloud', emoji: '☁️', name: 'White Cloud', tooltip: 'Drag white cloud to matching slot', ariaLabel: 'White cloud shape' }
+      ],
+      [
+        { id: 'hexagon', emoji: '⬢', name: 'Purple Hexagon', tooltip: 'Drag purple hexagon to matching slot', ariaLabel: 'Purple hexagon shape' },
+        { id: 'pentagon', emoji: '⬟', name: 'Orange Pentagon', tooltip: 'Drag orange pentagon to matching slot', ariaLabel: 'Orange pentagon shape' },
+        { id: 'oval', emoji: '⬯', name: 'Teal Oval', tooltip: 'Drag teal oval to matching slot', ariaLabel: 'Teal oval shape' },
+        { id: 'cross', emoji: '❌', name: 'Red Cross', tooltip: 'Drag red cross to matching slot', ariaLabel: 'Red cross shape' },
+        { id: 'flower', emoji: '❀', name: 'Pink Flower', tooltip: 'Drag pink flower to matching slot', ariaLabel: 'Pink flower shape' }
+      ],
+      [
+        { id: 'sun', emoji: '☀️', name: 'Yellow Sun', tooltip: 'Drag yellow sun to matching slot', ariaLabel: 'Yellow sun shape' },
+        { id: 'umbrella', emoji: '☂️', name: 'Blue Umbrella', tooltip: 'Drag blue umbrella to matching slot', ariaLabel: 'Blue umbrella shape' },
+        { id: 'snowflake', emoji: '❄️', name: 'White Snowflake', tooltip: 'Drag white snowflake to matching slot', ariaLabel: 'White snowflake shape' },
+        { id: 'lightning', emoji: '⚡', name: 'Yellow Lightning', tooltip: 'Drag yellow lightning to matching slot', ariaLabel: 'Yellow lightning shape' },
+        { id: 'atom', emoji: '⚛️', name: 'Blue Atom', tooltip: 'Drag blue atom to matching slot', ariaLabel: 'Blue atom shape' }
+      ],
+      [
+        { id: 'ghost', emoji: '👻', name: 'White Ghost', tooltip: 'Drag white ghost to matching slot', ariaLabel: 'White ghost shape' },
+        { id: 'robot', emoji: '🤖', name: 'Gray Robot', tooltip: 'Drag gray robot to matching slot', ariaLabel: 'Gray robot shape' },
+        { id: 'alien', emoji: '👽', name: 'Green Alien', tooltip: 'Drag green alien to matching slot', ariaLabel: 'Green alien shape' },
+        { id: 'dragon', emoji: '🐉', name: 'Red Dragon', tooltip: 'Drag red dragon to matching slot', ariaLabel: 'Red dragon shape' },
+        { id: 'unicorn', emoji: '🦄', name: 'Pink Unicorn', tooltip: 'Drag pink unicorn to matching slot', ariaLabel: 'Pink unicorn shape' }
+      ]
     ];
 
-    // State variables
-    let matched = {};
-    let dragInfo = null;
-    let animationActive = true;
-    let selectedShapeId = null;
-    let tapMode = false;
+    // State management
+    const state = {
+      currentShapes: [],
+      matched: {},
+      dragInfo: null,
+      animationActive: true,
+      selectedShapeId: null,
+      tapMode: false,
+      attempts: 0,
+      locked: false,
+      countdownInterval: null,
+      successTimeout: null,
+      keyboardMode: false,
+      accessibilityMode: false,
+      usingScreenReader: false,
+      startTime: 0,
+      shapeSetId: 0,
+      tokenSalt: '7x!A%D*G-KaPdSgVkYp3s6v9y$B?E(H+'
+    };
 
-    // DOM references
-    const shapesEl = document.getElementById('shapes');
-    const slotsEl = document.getElementById('slots');
-    const frameEl = document.getElementById('frame');
-    const verifyBtn = document.getElementById('verifyBtn');
-    const msgEl = document.getElementById('msg');
-    const hpField = document.getElementById('hp-field');
-    const successEl = document.getElementById('success');
-    const continueBtn = document.getElementById('continueBtn');
-    const instructionEl = document.getElementById('instruction');
+    // DOM elements
+    const elements = {
+      shapes: document.getElementById('shapes'),
+      slots: document.getElementById('slots'),
+      frame: document.getElementById('frame'),
+      verifyBtn: document.getElementById('verifyBtn'),
+      msg: document.getElementById('msg'),
+      hpField: document.getElementById('hp-field'),
+      success: document.getElementById('success'),
+      lockoutCountdown: document.getElementById('lockout-countdown'),
+      instruction: document.getElementById('instruction'),
+      botCheck: document.getElementById('bot-check'),
+      ariaMessages: document.getElementById('aria-messages'),
+      keyboardToggle: document.querySelector('.keyboard-toggle'),
+      accessibilityToggle: document.querySelector('.accessibility-toggle'),
+      captchaToken: document.getElementById('captcha-token')
+    };
 
-    // Detect real drag and drop support
-    function supportsRealDragAndDrop() {
-      const div = document.createElement('div');
-      const draggableSupported = ('draggable' in div);
-      const dragEventSupported = ('ondragstart' in div);
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      if (draggableSupported && dragEventSupported && !isTouchDevice) {
-        return true; // desktop-like drag support
+    // Initialize the captcha
+    function initCaptcha() {
+      // Reset state
+      state.matched = {};
+      state.animationActive = true;
+      state.selectedShapeId = null;
+      state.attempts = 0;
+      state.locked = false;
+      state.startTime = Date.now();
+      state.shapeSetId = Math.floor(Math.random() * SHAPE_SETS.length);
+      
+      // Clear UI
+      elements.verifyBtn.style.display = '';
+      elements.verifyBtn.disabled = true;
+      elements.lockoutCountdown.textContent = '';
+      elements.msg.textContent = '';
+      elements.success.style.display = 'none';
+      
+      // Generate token (simplified client-side example)
+      const tokenData = `${state.shapeSetId}|${Date.now()}|${state.tokenSalt}`;
+      elements.captchaToken.value = hashCode(tokenData);
+      
+      // Select 3 random shapes from the chosen set
+      const shuffledShapes = [...SHAPE_SETS[state.shapeSetId]].sort(() => Math.random() - 0.5);
+      state.currentShapes = shuffledShapes.slice(0, 3);
+      
+      // Setup UI
+      setupShapes();
+      setupSlots();
+      updateInstruction();
+      
+      // Start animation if not in accessibility mode
+      if (!state.accessibilityMode && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        animate();
       }
-      return false; // fallback to tap mode on touch or limited support
     }
 
-    tapMode = !supportsRealDragAndDrop();
-
-    // Set instruction text dynamically
-    if (tapMode) {
-      instructionEl.innerHTML = '<strong>Tap</strong> a shape to select it, then <strong>tap</strong> a moving slot to place it.';
-    } else {
-      instructionEl.innerHTML = '<strong>Hold</strong> and <strong>drag</strong> each shape into its matching moving slot.';
+    // Simple hash function for token generation
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0; // Convert to 32bit integer
+      }
+      return hash.toString(36);
     }
 
-    // Create draggable shapes at the bottom
-    const order = [...shapes].sort(() => Math.random() - 0.5);
-    order.forEach((s, i) => {
-      const el = document.createElement('div');
-      el.className = 'shape';
-      el.innerText = s.emoji;
-      el.id = `shape-${s.id}`;
+    // Validate token (simplified client-side example)
+    function validateToken(selections) {
+      const expected = elements.captchaToken.value;
+      const actual = hashCode(`${state.shapeSetId}|${selections.join(',')}|${state.tokenSalt}`);
+      return expected === actual;
+    }
 
-      if (!tapMode) {
-        // Drag and drop events
-        el.draggable = true;
+    // Set up draggable/tappable shapes
+    function setupShapes() {
+      elements.shapes.innerHTML = '';
+      
+      state.currentShapes.forEach(shape => {
+        const el = document.createElement('div');
+        el.className = 'shape';
+        el.textContent = shape.emoji;
+        el.id = `shape-${shape.id}`;
+        el.dataset.id = shape.id;
+        el.dataset.tooltip = shape.tooltip;
+        el.setAttribute('aria-label', shape.ariaLabel);
+        el.setAttribute('role', 'button');
 
-        el.addEventListener('dragstart', e => {
-          dragInfo = {
-            shapeId: s.id,
-            startTime: Date.now(),
-            moves: []
-          };
-          e.dataTransfer.setData('text/plain', s.id);
-        });
-
-        // Track mouse movements for irregularity check (commented out)
-        el.addEventListener('mousemove', e => {
-          if (dragInfo) dragInfo.moves.push({ x: e.clientX, y: e.clientY });
-        });
-      } else {
-        // Tap mode: click/touch selects shape
-        el.addEventListener('click', () => {
-          if (verifyBtn.disabled === false) return; // already verified
-
-          if (selectedShapeId === s.id) {
-            // Deselect
-            selectedShapeId = null;
-            el.classList.remove('selected');
-          } else {
-            // Deselect any other selected
-            document.querySelectorAll('.shape.selected').forEach(x => x.classList.remove('selected'));
-            selectedShapeId = s.id;
-            el.classList.add('selected');
+        if (!state.tapMode) {
+          el.draggable = true;
+          el.addEventListener('dragstart', handleDragStart);
+          
+          if (state.keyboardMode) {
+            el.tabIndex = 0;
+            el.addEventListener('keydown', handleShapeKeydown);
           }
-        });
-      }
+        } else {
+          el.addEventListener('click', handleShapeClick);
+        }
 
-      shapesEl.appendChild(el);
-    });
+        elements.shapes.appendChild(el);
+      });
+    }
 
-    // Create moving slots inside the frame
-    const slotConfigs = shapes.map(s => {
-      const slot = document.createElement('div');
-      slot.className = 'slot';
-      slot.dataset.id = s.id;
-      slot.innerHTML = `<span class="hint">${s.emoji}</span>`;
+    // Set up moving slots with permanent hints
+    function setupSlots() {
+      elements.slots.innerHTML = '';
+      
+      state.currentShapes.forEach(shape => {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.dataset.id = shape.id;
+        slot.dataset.tooltip = `Target slot for ${shape.name}`;
+        slot.innerHTML = `
+          <span class="hint">${shape.emoji}</span>
+          <span class="main-emoji" style="display:none"></span>
+        `;
+        slot.setAttribute('aria-label', `Target slot for ${shape.name}`);
 
-      // Random start position inside frame boundaries (account for shapes area at bottom)
-      slot.x = Math.random() * (frameEl.clientWidth - 60);
-      slot.y = Math.random() * (frameEl.clientHeight - 60 - 80) + 20;
+        // Position slots differently in accessibility mode
+        if (state.accessibilityMode || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          slot.style.position = 'static';
+          slot.style.display = 'inline-block';
+          slot.style.margin = '10px';
+        } else {
+          slot.x = Math.random() * (elements.frame.clientWidth - 60);
+          slot.y = Math.random() * (elements.frame.clientHeight - 60 - 80) + 20;
+          slot.vx = (Math.random() * 2.4) - 1.2;
+          slot.vy = (Math.random() * 2.4) - 1.2;
+          slot.style.left = `${slot.x}px`;
+          slot.style.top = `${slot.y}px`;
+        }
 
-      // Velocity px/frame: random speed and direction (between -1.2 and 1.2)
-      slot.vx = (Math.random() * 2.4) - 1.2;
-      slot.vy = (Math.random() * 2.4) - 1.2;
-
-      // Apply position
-      slot.style.left = slot.x + 'px';
-      slot.style.top = slot.y + 'px';
-
-      if (!tapMode) {
-        // Drag & drop events
-        slot.addEventListener('dragover', e => e.preventDefault());
-        slot.addEventListener('drop', onDrop);
-      } else {
-        // Tap mode: tap slot to place selected shape
-        slot.addEventListener('click', () => {
-          if (!selectedShapeId || verifyBtn.disabled === false) return;
-
-          // Honeypot bot detection
-          if (hpField.value) {
-            recordFail('Bot detected.');
-            return;
+        if (!state.tapMode) {
+          slot.addEventListener('dragover', e => e.preventDefault());
+          slot.addEventListener('drop', handleDrop);
+          
+          if (state.keyboardMode) {
+            slot.tabIndex = 0;
+            slot.addEventListener('keydown', handleSlotKeydown);
           }
+        } else {
+          slot.addEventListener('click', handleSlotClick);
+        }
 
-          if (selectedShapeId === slot.dataset.id) {
-            slot.classList.remove('incorrect');
-            slot.classList.add('correct');
-            slot.innerText = shapes.find(s => s.id === selectedShapeId).emoji;
-            matched[selectedShapeId] = true;
-            selectedShapeId = null;
-            document.querySelectorAll('.shape.selected').forEach(x => x.classList.remove('selected'));
-            msgEl.textContent = '';
-          } else {
-            slot.classList.add('incorrect');
-            slot.innerText = '❌';
-            matched[slot.dataset.id] = false;
-            recordFail('Wrong match.');
-            return;
-          }
+        elements.slots.appendChild(slot);
+      });
+    }
 
-          // Enable verify button if all matched
-          if (shapes.every(s => matched[s.id])) {
-            verifyBtn.disabled = false;
-            msgEl.textContent = '';
-          }
-        });
-      }
-
-      slotsEl.appendChild(slot);
-      return slot;
-    });
-
-    // Animation loop: move slots with bouncing inside frame bounds
+    // Animation loop for moving slots
     function animate() {
-      if (!animationActive) return;
+      if (!state.animationActive || state.accessibilityMode) return;
 
-      // Update frame size dynamically for responsiveness
-      const frameW = frameEl.clientWidth;
-      const frameH = frameEl.clientHeight;
+      const frameW = elements.frame.clientWidth;
+      const frameH = elements.frame.clientHeight;
 
-      slotConfigs.forEach(slot => {
-        slot.x += slot.vx;
-        slot.y += slot.vy;
-
-        // Bounce horizontally
+      document.querySelectorAll('.slot').forEach(slot => {
+        if (slot.style.position === 'static') return;
+        
+        slot.x += parseFloat(slot.vx);
+        slot.y += parseFloat(slot.vy);
+        
         if (slot.x < 0) {
           slot.x = 0;
           slot.vx = -slot.vx;
@@ -338,8 +572,7 @@
           slot.x = frameW - 60;
           slot.vx = -slot.vx;
         }
-
-        // Bounce vertically (avoid bottom 80px for shapes)
+        
         if (slot.y < 0) {
           slot.y = 0;
           slot.vy = -slot.vy;
@@ -347,106 +580,318 @@
           slot.y = frameH - 60 - 80;
           slot.vy = -slot.vy;
         }
-
-        slot.style.left = slot.x + 'px';
-        slot.style.top = slot.y + 'px';
+        
+        slot.style.left = `${slot.x}px`;
+        slot.style.top = `${slot.y}px`;
       });
 
       requestAnimationFrame(animate);
     }
-    requestAnimationFrame(animate);
 
-    // On window resize, reposition slots if out of bounds
-    window.addEventListener('resize', () => {
-      const frameW = frameEl.clientWidth;
-      const frameH = frameEl.clientHeight;
+    // Toggle keyboard mode
+    function toggleKeyboardMode() {
+      state.keyboardMode = !state.keyboardMode;
+      document.body.classList.toggle('keyboard-mode', state.keyboardMode);
+      elements.keyboardToggle.textContent = state.keyboardMode ? '⌨ ON' : '⌨';
+      initCaptcha();
+    }
 
-      slotConfigs.forEach(slot => {
-        slot.x = Math.min(slot.x, frameW - 60);
-        slot.y = Math.min(slot.y, frameH - 60 - 80);
-        slot.style.left = slot.x + 'px';
-        slot.style.top = slot.y + 'px';
-      });
-    });
+    // Toggle accessibility mode
+    function toggleAccessibilityMode() {
+      state.accessibilityMode = !state.accessibilityMode;
+      document.body.classList.toggle('accessibility-mode', state.accessibilityMode);
+      elements.accessibilityToggle.textContent = state.accessibilityMode ? '♿ ON' : '♿';
+      initCaptcha();
+    }
 
-    // Drop handler (drag and drop mode)
-    function onDrop(e) {
-      e.preventDefault();
-      const slot = e.currentTarget;
-      const draggedId = e.dataTransfer.getData('text/plain');
+    // Handle keyboard navigation for shapes
+    function handleShapeKeydown(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        state.selectedShapeId = e.currentTarget.dataset.id;
+        document.querySelectorAll('.shape').forEach(el => {
+          el.classList.remove('selected');
+        });
+        e.currentTarget.classList.add('selected');
+        announceAria(`Selected ${e.currentTarget.getAttribute('aria-label')}`);
+      }
+    }
 
-      // Honeypot bot detection
-      if (hpField.value) {
-        recordFail('Bot detected.');
+    // Handle keyboard navigation for slots
+    function handleSlotKeydown(e) {
+      if ((e.key === 'Enter' || e.key === ' ') && state.selectedShapeId) {
+        e.preventDefault();
+        validateMatch(e.currentTarget, state.selectedShapeId);
+      }
+    }
+
+    // Announce messages to screen readers
+    function announceAria(message) {
+      elements.ariaMessages.textContent = message;
+      setTimeout(() => {
+        elements.ariaMessages.textContent = '';
+      }, 1000);
+    }
+
+    // Start lockout countdown timer
+    function startLockoutCountdown() {
+      let remaining = Math.ceil(SECURITY.lockoutTime / 1000);
+      updateLockoutMessage(remaining);
+      
+      state.countdownInterval = setInterval(() => {
+        remaining--;
+        updateLockoutMessage(remaining);
+        
+        if (remaining <= 0) {
+          clearInterval(state.countdownInterval);
+          localStorage.removeItem('captchaAttempts');
+          localStorage.removeItem('lastAttempt');
+          window.location.reload();
+        }
+      }, 1000);
+    }
+
+    function updateLockoutMessage(seconds) {
+      const message = `Please wait ${seconds} seconds before trying again`;
+      elements.lockoutCountdown.textContent = message;
+      announceAria(message);
+    }
+
+    // Handle successful verification
+    function handleSuccess() {
+      // Check minimum solve time
+      const solveTime = Date.now() - state.startTime;
+      if (solveTime < SECURITY.minSolveTime) {
+        handleFailure('Please complete the captcha more slowly');
         return;
       }
 
-      const duration = Date.now() - dragInfo.startTime;
-
-if (duration < 150) {
-  recordFail('Drag too fast.');
-  return;
-}
-if (duration > 8000) {
-  recordFail('Drag too slow.');
+      // Verify token
+      const allMatched = state.currentShapes.every(shape => state.matched[shape.id]);
+if (!allMatched) {
+  handleFailure('Please complete all matches');
   return;
 }
 
-// Calculate total distance dragged
-const moves = dragInfo.moves;
-let totalDistance = 0;
-for (let i = 1; i < moves.length; i++) {
-  const dx = moves[i].x - moves[i - 1].x;
-  const dy = moves[i].y - moves[i - 1].y;
-  totalDistance += Math.hypot(dx, dy);
-}
+// Skip token validation for demo (or implement proper server-side validation)
+// if (!validateToken(Object.keys(state.matched))) {
+//   handleFailure('Verification failed');
+//   return;
+// }
 
-if (totalDistance > 2000) {
-  recordFail('Drag too erratic.');
-  return;
-}
+      state.animationActive = false;
+      elements.verifyBtn.style.display = 'none';
+      elements.success.style.display = 'block';
+      announceAria('Verification complete! You passed the security check.');
+      
+      document.querySelectorAll('.shape, .slot').forEach(el => {
+        el.style.pointerEvents = 'none';
+      });
 
+      state.successTimeout = setTimeout(() => {
+        window.location.reload();
+      }, SECURITY.successDisplayTime);
+    }
 
-      // Check correct match
-      if (draggedId === slot.dataset.id) {
+    // Event handlers
+    function handleDragStart(e) {
+      if (state.locked) {
+        e.preventDefault();
+        return;
+      }
+      
+      state.dragInfo = {
+        shapeId: e.target.dataset.id,
+        startTime: Date.now(),
+        moves: []
+      };
+      e.dataTransfer.setData('text/plain', e.target.dataset.id);
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (state.locked) return;
+      
+      const slot = e.currentTarget;
+      const shapeId = e.dataTransfer.getData('text/plain');
+      validateMatch(slot, shapeId);
+    }
+
+    function handleShapeClick(e) {
+      if (state.locked || elements.verifyBtn.disabled === false) return;
+      
+      const shapeId = e.currentTarget.dataset.id;
+      
+      if (state.selectedShapeId === shapeId) {
+        state.selectedShapeId = null;
+        e.currentTarget.classList.remove('selected');
+      } else {
+        document.querySelectorAll('.shape.selected').forEach(el => {
+          el.classList.remove('selected');
+        });
+        state.selectedShapeId = shapeId;
+        e.currentTarget.classList.add('selected');
+      }
+    }
+
+    function handleSlotClick(e) {
+      if (state.locked || !state.selectedShapeId || elements.verifyBtn.disabled === false) return;
+      
+      const slot = e.currentTarget;
+      
+      if (elements.hpField.value || elements.botCheck.checked) {
+        handleFailure('Bot detected');
+        return;
+      }
+      
+      validateMatch(slot, state.selectedShapeId);
+    }
+
+    // Core validation logic
+    function validateMatch(slot, shapeId) {
+      const isCorrect = slot.dataset.id === shapeId;
+      const shape = state.currentShapes.find(s => s.id === shapeId);
+      const correctShape = state.currentShapes.find(s => s.id === slot.dataset.id);
+      const hint = slot.querySelector('.hint');
+      const mainEmoji = slot.querySelector('.main-emoji');
+      
+      if (isCorrect) {
         slot.classList.remove('incorrect');
         slot.classList.add('correct');
-        slot.innerText = shapes.find(s => s.id === draggedId).emoji;
-        matched[draggedId] = true;
+        
+        if (mainEmoji) {
+          mainEmoji.textContent = shape.emoji;
+          mainEmoji.style.display = 'block';
+        }
+        
+        if (hint) {
+          hint.style.display = 'block';
+        }
+        
+        state.matched[shapeId] = true;
+        announceAria(`Correct! ${shape.name} placed in correct slot`);
+        
+        if (state.tapMode) {
+          state.selectedShapeId = null;
+          document.querySelector('.shape.selected')?.classList.remove('selected');
+        }
+        
+        // Enable verify button if all matched
+        if (Object.keys(state.matched).length === state.currentShapes.length) {
+  elements.verifyBtn.disabled = false;
+  // Auto-verify in all modes
+  handleSuccess();
+}
       } else {
         slot.classList.add('incorrect');
-        slot.innerText = '❌';
-        matched[slot.dataset.id] = false;
-        recordFail('Wrong match.');
-        return;
-      }
-
-      // Enable verify button if all matched
-      if (shapes.every(s => matched[s.id])) {
-        verifyBtn.disabled = false;
-        msgEl.textContent = '';
+        
+        if (mainEmoji) {
+          mainEmoji.textContent = '❌';
+          mainEmoji.style.display = 'block';
+        }
+        
+        if (hint) {
+          hint.style.display = 'block';
+        }
+        
+        announceAria(`Incorrect. This ${shape.name} belongs in the ${correctShape.name} slot`);
+        handleFailure('Wrong match');
       }
     }
 
-    // Verify button clicked
-    verifyBtn.addEventListener('click', () => {
-      animationActive = false;
-      // Disable all dragging and tapping
-      document.querySelectorAll('.shape').forEach(el => el.draggable = false);
-      document.querySelectorAll('.shape').forEach(el => el.style.pointerEvents = 'none');
-      verifyBtn.style.display = 'none';
-      successEl.style.display = 'block';
-    });
-
-    // Continue button reloads page (or redirect here later)
-    continueBtn.addEventListener('click', () => {
-      window.location.reload();
-    });
-
-    // Display failure message
-    function recordFail(reason) {
-      msgEl.textContent = reason + ' Try again.';
+    // Failure handling with attempt tracking
+    function handleFailure(reason) {
+      state.attempts++;
+      localStorage.setItem('captchaAttempts', state.attempts);
+      localStorage.setItem('lastAttempt', Date.now());
+      
+      const attemptsLeft = SECURITY.maxAttempts - state.attempts;
+      const message = `${reason} (${attemptsLeft} attempts left)`;
+      elements.msg.textContent = message;
+      announceAria(message);
+      
+      if (state.attempts >= SECURITY.maxAttempts) {
+        showLockout();
+      } else {
+        resetAttempt();
+      }
     }
+
+    function resetAttempt() {
+      document.querySelectorAll('.slot').forEach(slot => {
+        slot.classList.remove('correct', 'incorrect');
+        const mainEmoji = slot.querySelector('.main-emoji');
+        if (mainEmoji) {
+          mainEmoji.style.display = 'none';
+        }
+      });
+      
+      state.matched = {};
+      elements.verifyBtn.disabled = true;
+    }
+
+    function showLockout() {
+      state.locked = true;
+      state.animationActive = false;
+      elements.verifyBtn.disabled = true;
+      startLockoutCountdown();
+    }
+
+    // UI helpers
+    function updateInstruction() {
+      let instruction;
+      if (state.keyboardMode) {
+        instruction = '<strong>Tab</strong> to navigate shapes and slots. <strong>Enter/Space</strong> to select shapes and place them.';
+      } else if (state.tapMode) {
+        instruction = '<strong>Tap</strong> a shape to select it, then <strong>tap</strong> a moving slot to place it.';
+      } else {
+        instruction = '<strong>Hold</strong> and <strong>drag</strong> each shape into its matching moving slot.';
+      }
+      elements.instruction.innerHTML = instruction;
+      announceAria(instruction);
+    }
+
+    // Detect screen reader usage
+    function detectScreenReader() {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches || 
+             /screenreader|jaws|nvda|voiceover|talkback/i.test(navigator.userAgent);
+    }
+
+    // Detect touch devices
+    function detectTouch() {
+      return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    }
+
+    // Initialize
+    function initialize() {
+      state.tapMode = detectTouch();
+      state.usingScreenReader = detectScreenReader();
+      
+      // Event listeners
+      elements.keyboardToggle.addEventListener('click', toggleKeyboardMode);
+      elements.accessibilityToggle.addEventListener('click', toggleAccessibilityMode);
+      elements.verifyBtn.addEventListener('click', handleSuccess);
+      
+      // Window resize handler
+      window.addEventListener('resize', () => {
+        if (state.accessibilityMode) return;
+        
+        const frameW = elements.frame.clientWidth;
+        const frameH = elements.frame.clientHeight;
+        
+        document.querySelectorAll('.slot').forEach(slot => {
+          if (slot.style.position === 'static') return;
+          slot.x = Math.min(slot.x, frameW - 60);
+          slot.y = Math.min(slot.y, frameH - 60 - 80);
+          slot.style.left = `${slot.x}px`;
+          slot.style.top = `${slot.y}px`;
+        });
+      });
+      
+      initCaptcha();
+    }
+
+    initialize();
   </script>
 </body>
 </html>

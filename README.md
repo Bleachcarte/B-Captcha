@@ -5,41 +5,55 @@ A lightweight, user-friendly moving-slot CAPTCHA replacement designed to enhance
 
 ## Features
 
-- Drag and drop shapes into moving slots to verify humanity  
-- Automatically switches to tap-to-place mode on devices or browsers without reliable drag-and-drop support  
-- Slots move smoothly with responsive bouncing within the container  
-- Behavioral checks on drag duration and movement to detect bots  
-- Honeypot field for invisible bot detection  
-- Responsive design that adapts to different screen sizes and devices  
-- Simple, clean UI with smooth animations and rounded elements  
-- No external dependencies; pure HTML, CSS, and JavaScript  
+- Drag and drop shapes into moving slots to verify humanity
+- Automatically switches to tap-to-place mode on touch devices
+- Keyboard navigation for accessibility
+- Screen reader support with ARIA labels
+- Reduced motion mode for sensitive users
+- Auto-verifies when all matches are complete
+- Behavioral checks on drag duration and movement
+- Honeypot field for invisible bot detection
+- Time-based token validation
+- Dynamic slot shuffling to prevent automation
+- Decoy shapes to waste bot time
+- Responsive design that adapts to all screen sizes
+- Simple, clean UI with smooth animations
+- No external dependencies - pure HTML, CSS, and JavaScript
+- Multiple emoji theme sets (60+ combinations)
+- Focus-time measurement to detect headless browsers
 
 ## Demo
 
-Try the live demo [here](https://bleachcarte.github.io/B-Captcha/)  
+Try the live demo [here](https://bleachcarte.github.io/B-Captcha/)
 
 ## Usage
 
-1. Clone or download the repository  
-2. Open `index.html` in your browser or serve with Live Server  
-3. Follow the on-screen instructions:  
-   - On devices with drag-and-drop support: hold and drag each shape into its matching moving slot  
-   - On devices without drag-and-drop support: tap a shape to select it, then tap the matching moving slot to place it  
-4. Click "Verify" once all shapes are correctly matched  
+1. Clone or download the repository
+2. Open `index.html` in your browser
+3. Match the emoji shapes to their slots using:
+   - Drag-and-drop (desktop)
+   - Tap-to-select (mobile)
+   - Keyboard controls (accessibility)
+4. System auto-verifies when all matches are correct
 
 ## Installation & Development
 
-- Requires only a modern web browser  
-- Optional: Use VSCode Live Server for local testing  
+- Requires only a modern web browser
+- No build step or dependencies
 - Customize shapes, movement parameters, or UI styles in `index.html`
 
 ## Configuration
 
-You can tweak parameters inside the script section, such as:
+Tweak these parameters in the script section:
 
-- Slot movement amplitude and frequency  
-- Drag behavior thresholds (duration, distance)  
-- Number of allowed fails and cooldown time  
+const SECURITY = {
+  maxAttempts: 3,           // Wrong tries before lockout
+  lockoutTime: 10000,       // 10 second cooldown
+  minDragTime: 150,         // Minimum drag duration (ms)
+  maxDragTime: 15000,       // Maximum drag duration (ms)
+  successDisplayTime: 2500, // Success message display time (ms)
+  minSolveTime: 2000        // Minimum verification time (ms)
+};
 
 ## Contributing
 
