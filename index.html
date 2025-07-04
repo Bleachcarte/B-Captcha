@@ -165,6 +165,7 @@
 
     /* BUTTONS */
     #verifyBtn {
+      display: none;
       margin-top: 30px;
       padding: 14px 28px;
       border: none;
@@ -304,7 +305,7 @@
       display: none !important;
     }
 
-    .shape {
+      .shape {
     will-change: transform; /* Optimizes transform performance */
     backface-visibility: hidden; /* Prevents rendering artifacts */
     -webkit-transform: translateZ(0); /* GPU acceleration for WebKit */
@@ -784,7 +785,7 @@ if (!allMatched) {
         
         // Enable verify button if all matched
         if (Object.keys(state.matched).length === state.currentShapes.length) {
-  elements.verifyBtn.disabled = false;
+  // elements.verifyBtn.disabled = false;
   // Auto-verify in all modes
   handleSuccess();
 }
