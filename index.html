@@ -722,7 +722,11 @@
         e.preventDefault();
         return;
       }
-      
+      if (e.dataTransfer.setDragImage) {
+    const blankImg = new Image();
+    blankImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(blankImg, 0, 0);
+  }
       state.dragInfo = {
         shapeId: e.target.dataset.id,
         startTime: Date.now(),
