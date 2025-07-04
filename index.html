@@ -109,6 +109,13 @@
     .shape:active {
       cursor: grabbing;
     }
+    
+    /* GHOSTING FIX */
+    .shape {
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-transform: translateZ(0);
+    }
 
     /* TOOLTIPS */
     .shape::after, .slot::after {
@@ -176,14 +183,6 @@
       cursor: pointer;
       transition: background-color 0.3s ease, transform 0.2s ease;
       user-select: none;
-    }
-    #verifyBtn:disabled {
-      background-color: #b0c9ff;
-      cursor: not-allowed;
-    }
-    #verifyBtn:hover:not(:disabled) {
-      background-color: #0056b3;
-      transform: scale(1.05);
     }
 
     /* MESSAGES */
@@ -304,16 +303,8 @@
     .security-element {
       display: none !important;
     }
-
-    .shape {
-    will-change: transform; /* Optimizes transform performance */
-    backface-visibility: hidden; /* Prevents rendering artifacts */
-    -webkit-transform: translateZ(0); /* GPU acceleration for WebKit */
-    }
-    
   </style>
 </head>
-
 <body>
   <div class="captcha-container">
     <button class="accessibility-toggle" aria-label="Toggle accessibility mode">♿</button>
@@ -449,11 +440,11 @@
       elements.msg.textContent = '';
       elements.success.style.display = 'none';
       
-      // Generate token (simplified client-side example)
+      // Generate token
       const tokenData = `${state.shapeSetId}|${Date.now()}|${state.tokenSalt}`;
       elements.captchaToken.value = hashCode(tokenData);
       
-      // Select 3 random shapes from the chosen set
+      // Select 3 random shapes
       const shuffledShapes = [...SHAPE_SETS[state.shapeSetId]].sort(() => Math.random() - 0.5);
       state.currentShapes = shuffledShapes.slice(0, 3);
       
@@ -473,16 +464,9 @@
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
         hash = (hash << 5) - hash + str.charCodeAt(i);
-        hash |= 0; // Convert to 32bit integer
+        hash |= 0;
       }
       return hash.toString(36);
-    }
-
-    // Validate token (simplified client-side example)
-    function validateToken(selections) {
-      const expected = elements.captchaToken.value;
-      const actual = hashCode(`${state.shapeSetId}|${selections.join(',')}|${state.tokenSalt}`);
-      return expected === actual;
     }
 
     // Set up draggable/tappable shapes
@@ -499,23 +483,26 @@
         el.setAttribute('aria-label', shape.ariaLabel);
         el.setAttribute('role', 'button');
 
-        if (!state.tapMode) {
-          el.draggable = true;
-          el.addEventListener('dragstart', handleDragStart);
-          
-          if (state.keyboardMode) {
-            el.tabIndex = 0;
-            el.addEventListener('keydown', handleShapeKeydown);
-          }
-        } else {
+        // Drag is the primary method on all devices
+        el.draggable = true;
+        el.addEventListener('dragstart', handleDragStart);
+        
+        // Only add tap if we're in tap mode (for unsupported browsers)
+        if (state.tapMode) {
           el.addEventListener('click', handleShapeClick);
+        }
+        
+        // Keyboard support
+        if (state.keyboardMode) {
+          el.tabIndex = 0;
+          el.addEventListener('keydown', handleShapeKeydown);
         }
 
         elements.shapes.appendChild(el);
       });
     }
 
-    // Set up moving slots with permanent hints
+    // Set up moving slots
     function setupSlots() {
       elements.slots.innerHTML = '';
       
@@ -530,7 +517,7 @@
         `;
         slot.setAttribute('aria-label', `Target slot for ${shape.name}`);
 
-        // Position slots differently in accessibility mode
+        // Position slots based on mode
         if (state.accessibilityMode || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           slot.style.position = 'static';
           slot.style.display = 'inline-block';
@@ -544,23 +531,26 @@
           slot.style.top = `${slot.y}px`;
         }
 
-        if (!state.tapMode) {
-          slot.addEventListener('dragover', e => e.preventDefault());
-          slot.addEventListener('drop', handleDrop);
-          
-          if (state.keyboardMode) {
-            slot.tabIndex = 0;
-            slot.addEventListener('keydown', handleSlotKeydown);
-          }
-        } else {
+        // Drop handling
+        slot.addEventListener('dragover', e => e.preventDefault());
+        slot.addEventListener('drop', handleDrop);
+        
+        // Tap handling for unsupported browsers
+        if (state.tapMode) {
           slot.addEventListener('click', handleSlotClick);
+        }
+        
+        // Keyboard support
+        if (state.keyboardMode) {
+          slot.tabIndex = 0;
+          slot.addEventListener('keydown', handleSlotKeydown);
         }
 
         elements.slots.appendChild(slot);
       });
     }
 
-    // Animation loop for moving slots
+    // Animation loop
     function animate() {
       if (!state.animationActive || state.accessibilityMode) return;
 
@@ -641,7 +631,7 @@
       }, 1000);
     }
 
-    // Start lockout countdown timer
+    // Start lockout countdown
     function startLockoutCountdown() {
       let remaining = Math.ceil(SECURITY.lockoutTime / 1000);
       updateLockoutMessage(remaining);
@@ -665,35 +655,36 @@
       announceAria(message);
     }
 
+    // Handle successful verification
     function handleSuccess() {
-  // Check minimum solve time
-  const solveTime = Date.now() - state.startTime;
-  if (solveTime < SECURITY.minSolveTime) {
-    handleFailure('Please complete the captcha more slowly');
-    return;
-  }
+      // Check minimum solve time
+      const solveTime = Date.now() - state.startTime;
+      if (solveTime < SECURITY.minSolveTime) {
+        handleFailure('Please complete the captcha more slowly');
+        return;
+      }
 
-  // Verify all shapes are matched
-  const allMatched = state.currentShapes.every(shape => state.matched[shape.id]);
-  if (!allMatched) {
-    handleFailure('Please complete all matches');
-    return;
-  }
+      // Verify all shapes are matched
+      const allMatched = state.currentShapes.every(shape => state.matched[shape.id]);
+      if (!allMatched) {
+        handleFailure('Please complete all matches');
+        return;
+      }
 
-  state.animationActive = false;
-  elements.verifyBtn.style.display = 'none';
-  elements.success.style.display = 'block';
-  announceAria('Verification complete! You passed the security check.');
-  
-  document.querySelectorAll('.shape, .slot').forEach(el => {
-    el.style.pointerEvents = 'none';
-  });
+      state.animationActive = false;
+      elements.verifyBtn.style.display = 'none';
+      elements.success.style.display = 'block';
+      announceAria('Verification complete! You passed the security check.');
+      
+      document.querySelectorAll('.shape, .slot').forEach(el => {
+        el.style.pointerEvents = 'none';
+      });
 
-  // Keep your preferred delay, then redirect
-  state.successTimeout = setTimeout(() => {
-    window.location.href = "success.html";
-  }, SECURITY.successDisplayTime); // Still uses your 2.5s delay
-}
+      // Redirect after delay
+      state.successTimeout = setTimeout(() => {
+        window.location.href = "success.html";
+      }, SECURITY.successDisplayTime);
+    }
 
     // Event handlers
     function handleDragStart(e) {
@@ -778,12 +769,10 @@
           document.querySelector('.shape.selected')?.classList.remove('selected');
         }
         
-        // Enable verify button if all matched
+        // Auto-verify when all matched
         if (Object.keys(state.matched).length === state.currentShapes.length) {
-  // elements.verifyBtn.disabled = false;
-  // Auto-verify in all modes
-  handleSuccess();
-}
+          handleSuccess();
+        }
       } else {
         slot.classList.add('incorrect');
         
@@ -801,7 +790,7 @@
       }
     }
 
-    // Failure handling with attempt tracking
+    // Failure handling
     function handleFailure(reason) {
       state.attempts++;
       localStorage.setItem('captchaAttempts', state.attempts);
